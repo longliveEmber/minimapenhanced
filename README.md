@@ -4,7 +4,7 @@
 
 By **Banedon**. Based on [minimapcontrol by onimitch](https://github.com/onimitch/ffxi-ashita-minimapcontrol), which did the original work of fading the minimap.
 
-The minimap is great while you run around and in the way everywhere else. Minimap Enhanced fades it out when you fight, open menus, watch a cutscene or open the map, and fades it back in when you're done.
+Minimap Enhanced fades it out when you fight, open menus, watch a cutscene or open the map, and fades it back in when you're done.
 
 What it adds to minimapcontrol:
 
