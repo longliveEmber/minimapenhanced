@@ -17,8 +17,8 @@ What it adds to minimapcontrol:
 ## Install (TL;DR)
 
 1. You need Ashita v4 with the **minimap** plugin loaded (`/load minimap`).
-2. Click **Code > Download ZIP** on this page (or grab the latest release).
-3. Unzip it and put it in your addons folder, so you have `/addons/minimapenhanced/minimapenhanced.lua`. If the folder is called `minimapenhanced-main`, rename it to `minimapenhanced`.
+2. Click **Code > Download ZIP** on this page (or grab the latest release) and unzip it.
+3. Copy the `minimapenhanced` folder from inside it into your Ashita addons folder, so you have `/addons/minimapenhanced/minimapenhanced.lua`.
 4. **Unload minimapmon and minimapcontrol** if you use them. They control the same minimap and will fight each other.
 5. In game: `/addon load minimapenhanced`
 6. To load it every time, add `/addon load minimapenhanced` to `/scripts/default.txt`.
@@ -99,7 +99,7 @@ Open with `/minimap`'s editor, debug messages (menu names, combat start/end, zon
 
 - **[minimapcontrol](https://github.com/onimitch/ffxi-ashita-minimapcontrol)** by onimitch (MIT), which this is based on. Its license is in [LICENSE-minimapcontrol](LICENSE-minimapcontrol).
 - **minimapmon** by atom0s and the **minimap** plugin, bundled with [Ashita v4](https://github.com/AshitaXI/Ashita-v4beta).
-- Helper functions in `mmhelpers.lua` come from [HXUI](https://github.com/tirem/HXUI) (GPL v3).
+- Helper functions in `minimapenhanced/mmhelpers.lua` come from [HXUI](https://github.com/tirem/HXUI) (GPL v3).
 - Safe zone list checked against the [LandSandBoat](https://github.com/LandSandBoat/server) zone settings.
 
 ## License
