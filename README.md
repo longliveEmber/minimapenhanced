@@ -2,15 +2,23 @@
 
 **Smart fading and per-zone zoom for the Ashita v4 minimap plugin.**
 
-Minimap Enhanced fades it out when you fight, open menus, watch a cutscene or open the map, and fades it back in when you're done. It also remembers the zoom you like in every zone, and gives cities and fields their own starting zoom.
+By **Banedon**. Based on [minimapcontrol by onimitch](https://github.com/onimitch/ffxi-ashita-minimapcontrol), which did the original work of fading the minimap.
 
-It's based on [minimapcontrol by onimitch](https://github.com/onimitch/ffxi-ashita-minimapcontrol), with an in-game config window, smoother fades, more reliable combat detection and per-zone zoom.
+The minimap is great while you run around and in the way everywhere else. Minimap Enhanced fades it out when you fight, open menus, watch a cutscene or open the map, and fades it back in when you're done.
+
+What it adds to minimapcontrol:
+
+- **Fixes the erratic fading in battle.** Combat is read from your weapon status, monsters claimed by you or your party, and monsters that hit or cast on you, so the minimap no longer blinks in and out during a fight or between pulls.
+- **Adds default "hostile" and "safe" zone zooms.** Fields, dungeons and battle zones get one starting zoom; cities, towns, indoor and residential areas, boats and airships get another. Change the zoom anywhere and it's remembered for that zone.
+- **Adds an in-game config menu.** Type `/mme` to change every setting in game. Changes apply at once and save per character, and the menu also opens next to `/minimap`'s own editor.
+
+---
 
 ## Install (TL;DR)
 
 1. You need Ashita v4 with the **minimap** plugin loaded (`/load minimap`).
 2. Click **Code > Download ZIP** on this page (or grab the latest release).
-3. Unzip it. Put it in your addons folder, so you have `/addons/minimapenhanced/minimapenhanced.lua`.
+3. Unzip it and put it in your addons folder, so you have `/addons/minimapenhanced/minimapenhanced.lua`. If the folder is called `minimapenhanced-main`, rename it to `minimapenhanced`.
 4. **Unload minimapmon and minimapcontrol** if you use them. They control the same minimap and will fight each other.
 5. In game: `/addon load minimapenhanced`
 6. To load it every time, add `/addon load minimapenhanced` to `/scripts/default.txt`.
@@ -91,9 +99,9 @@ Open with `/minimap`'s editor, debug messages (menu names, combat start/end, zon
 
 - **[minimapcontrol](https://github.com/onimitch/ffxi-ashita-minimapcontrol)** by onimitch (MIT), which this is based on. Its license is in [LICENSE-minimapcontrol](LICENSE-minimapcontrol).
 - **minimapmon** by atom0s and the **minimap** plugin, bundled with [Ashita v4](https://github.com/AshitaXI/Ashita-v4beta).
-- Helper functions in `helpers.lua` come from [HXUI](https://github.com/tirem/HXUI) (GPL v3).
+- Helper functions in `mmhelpers.lua` come from [HXUI](https://github.com/tirem/HXUI) (GPL v3).
 - Safe zone list checked against the [LandSandBoat](https://github.com/LandSandBoat/server) zone settings.
 
 ## License
 
-Released under the [GNU General Public License v3](LICENSE). The parts from minimapcontrol stay under their MIT license ([LICENSE-minimapcontrol](LICENSE-minimapcontrol)).
+Minimap Enhanced by Banedon is released under the [GNU General Public License v3](LICENSE). The parts from minimapcontrol stay under their MIT license ([LICENSE-minimapcontrol](LICENSE-minimapcontrol)).
