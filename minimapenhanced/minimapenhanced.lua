@@ -6,7 +6,7 @@
 --]]
 addon.name      = 'minimapenhanced'
 addon.author    = 'Banedon (based on minimapcontrol by onimitch)'
-addon.version   = '1.0.0'
+addon.version   = '1.1.0'
 addon.desc      = 'Minimap Enhanced by Banedon. Controls the visibility, opacity and zoom of the Ashita v4 minimap plugin. Based on minimapcontrol by onimitch, with fixes and extra features.'
 addon.link      = 'https://github.com/longliveEmber/minimapenhanced'
 -- Original project: https://github.com/onimitch/ffxi-ashita-minimapcontrol
@@ -55,6 +55,12 @@ local minimapenhanced = {
     now = 0,                   -- clock at the last tick
     visible = true,            -- gate target from the last tick
     ctx = nil,                 -- last party context (combat tracking)
+    -- Hidden from leaving a zone until the new zone's zoom has settled, then faded in (1.1.0).
+    zone_hide = false,
+    zone_ready_at = nil,       -- clock when zoning finished (player exists in the new zone)
+    zone_fading = false,       -- the fade-in after zoning is running (uses zoning.fade_in)
+    zone_timing = { fade_in = 0.5, fade_out = 0.22 }, -- reused timing table for that fade (no per-frame alloc)
+    zero = { 0, 0, 0, 0, 0, 0 },
 }
 local mmc = minimapenhanced
 
@@ -421,6 +427,23 @@ function mmc.raise(values)
     mmc.events_sent = mmc.events_sent + 1
 end
 
+-- Leaving a zone: hide the minimap at once (if "hide until the zoom settles" is on).
+function mmc.zone_begin_hide()
+    mmc.zone_fading = false
+    if mmc.settings.zoning == nil or mmc.settings.zoning.hide == false then mmc.zone_hide = false; return end
+    mmc.zone_hide, mmc.zone_ready_at = true, nil
+    mmc.last_level = 0
+    mmc.raise(mmc.zero)
+    mmc.sender:invalidate()
+end
+
+-- Config window preview of the zoning hide + fade-in (no zone change, zoom already settled).
+function mmc.preview_zoning()
+    if mmc.zoning then return end
+    mmc.zone_begin_hide()
+    mmc.zone_ready_at = mmc.clock()
+end
+
 -- One frame. Called from d3d_present (state, fade and send happen on the same frame).
 function mmc.tick(now)
     now = now or mmc.clock()
@@ -430,7 +453,9 @@ function mmc.tick(now)
     if mmc.zoning then
         -- Finish zoning once the new zone is in and the player exists (fallback: 30 s).
         if (mmc.zone_in_seen and GetPlayerEntity() ~= nil) or (now - mmc.zoning_since > 30) then
-            mmc.zoning, mmc.zone_in_seen, mmc.snap_next = false, false, true
+            mmc.zoning, mmc.zone_in_seen = false, false
+            mmc.snap_next = not mmc.zone_hide -- held: stays hidden, then fades in (below)
+            mmc.zone_ready_at = now
             mmc.gate:reset(true) -- judge the new zone fresh (no leftover show delay)
             mmc.sender:invalidate()
             mmc.zoomer:on_ready(now, mmc.settings, mmc.zone_id)
@@ -447,12 +472,36 @@ function mmc.tick(now)
     local visible, changed = mmc.gate:update(now, reasons, override, s.timing)
     mmc.visible = visible
 
+    -- After zoning: keep the minimap hidden until the zoom is confirmed and `hold` has passed
+    -- (or max_wait), so the old zone's zoom is never seen. Then fade in from 0.
+    if mmc.zone_hide then
+        local z = s.zoning
+        local since = now - (mmc.zone_ready_at or now)
+        local settled = mmc.zoomer:settled()
+        if (settled and since >= core.num(z.hold, 0.5)) or since >= core.num(z.max_wait, 4) or z.hide == false then
+            mmc.zone_hide = false
+            mmc.fader:snap(false, now)
+            mmc.zone_fading = true
+        else
+            mmc.last_level = 0
+            if mmc.sender:want(now, mmc.zero, 0, true, s.timing.update_hz, false) then mmc.raise(mmc.zero) end
+            return changed
+        end
+    end
+
     local level
     if mmc.snap_next then
         mmc.fader:snap(visible, now)
         level, mmc.snap_next = mmc.fader:level(), false
         mmc.sender:invalidate()
+    elseif mmc.zone_fading and visible then
+        local zt = mmc.zone_timing
+        zt.fade_in = core.clamp(core.num(s.zoning.fade_in, 0.5), 0, 3)
+        zt.fade_out = s.timing.fade_out
+        level = mmc.fader:update(now, visible, zt)
+        if mmc.fader:done() then mmc.zone_fading = false end
     else
+        mmc.zone_fading = false
         level = mmc.fader:update(now, visible, s.timing)
     end
     mmc.last_level = level
@@ -627,7 +676,7 @@ minimapenhanced.initialize = function ()
     -- fade times are limited to 0 - 1 s (older settings files allowed up to 2 s)
     s.timing.fade_in = core.clamp(core.num(s.timing.fade_in, 0.18), 0, 1)
     s.timing.fade_out = core.clamp(core.num(s.timing.fade_out, 0.22), 0, 1)
-    for _, k in ipairs({ 'zoom_by_type' }) do
+    for _, k in ipairs({ 'zoom_by_type', 'zoning' }) do
         if s[k] == nil then s[k] = T{} end
         for dk, dv in pairs(default_settings[k]) do if s[k][dk] == nil then s[k][dk] = dv end end
     end
@@ -687,6 +736,7 @@ ashita.events.register('packet_in', 'minimapenhanced_packet_in', function (e)
     if (e.id == defines.packets.inc.zone_out) then
         mmc.zoning, mmc.zoning_since, mmc.zone_in_seen = true, mmc.clock(), false
         mmc.editor.tracked = false
+        mmc.zone_begin_hide()
         minimapenhanced.reset_state()
         if mmc.zone_id ~= nil then mmc.zoomer:on_zone_out(mmc.clock(), mmc.settings, mmc.zone_id) end
         mmc.flush_save() -- a zoom you changed in the zone you're leaving
@@ -695,9 +745,14 @@ ashita.events.register('packet_in', 'minimapenhanced_packet_in', function (e)
 
     if (e.id == defines.packets.inc.zone_in) then
         mmc.zone_in_seen = true
-        if not mmc.zoning then mmc.zoning, mmc.zoning_since = true, mmc.clock() end
+        if not mmc.zoning then
+            mmc.zoning, mmc.zoning_since = true, mmc.clock()
+            mmc.zone_begin_hide()
+        end
         local zone_id = struct.unpack('H', e.data, 0x30 + 1)
         minimapenhanced.on_zone_changed(zone_id)
+        -- Send the new zone's zoom now, during the load screen (see mmzoom.lua).
+        mmc.zoomer:send_early(mmc.clock(), mmc.settings, mmc.zone_id)
         return
     end
 

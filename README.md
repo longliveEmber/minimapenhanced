@@ -36,6 +36,7 @@ What it adds to minimapcontrol:
 | **Real combat detection** | Weapon drawn, monsters claimed by you or your party, and monsters that hit or cast on you, with an aggro memory. Ignored while mounted |
 | **Opacity when shown** | Map, frame, arrow, monsters, NPCs and players each get their own opacity |
 | **Zoom per zone** | Change the zoom in a zone (command, editor or mouse wheel) and it's saved for that zone |
+| **Clean zone changes** | The new zone's zoom is sent during the load screen, and the minimap stays hidden until it's confirmed, then fades in |
 | **First-visit zoom** | Zones you haven't saved use a hostile or safe zoom (cities, towns, indoor and residential areas, boats, airships) |
 | **Config window** | Every setting in game, applied at once and saved per character. Opens with `/minimap`'s editor |
 | **Diagnostics** | `/mme info` says why the minimap is shown or hidden right now |
@@ -61,7 +62,7 @@ Map, frame, arrow, monsters, NPCs and players (0-1).
 
 ### Zoom
 - The zone you're in, whether it's a safe or hostile zone, and the zoom it uses.
-- Save my zoom changes per zone, first-visit zoom by zone type, hostile zone zoom, safe zone zoom, zoom when "by type" is off, delay after zoning.
+- Save my zoom changes per zone, first-visit zoom by zone type, hostile zone zoom, safe zone zoom, zoom when "by type" is off, last check after zoning, hide the minimap until the zoom has settled, wait after arriving, fade in after zoning.
 - Save a zoom for this zone, forget it, and the list of saved zone zooms with a Remove button each.
 
 ### Other

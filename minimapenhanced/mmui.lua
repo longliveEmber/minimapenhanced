@@ -99,6 +99,9 @@ function M.draw_body()
     tip('Lets you see opacity changes. Untick it to test the hide rules with this window open.')
     if imgui.Button('Preview fade') then mmc.preview_hide_until = (mmc.now or 0) + 0.4 + (tonumber(s.timing.fade_out) or 0) end
     tip('Hides the minimap briefly, then shows it again, using your fade times.')
+    imgui.SameLine()
+    if imgui.Button('Preview zoning fade') then mmc.preview_zoning() end
+    tip('Hides the minimap as zoning does, then shows it after your wait and fade-in after zoning.')
     imgui.Separator()
 
     if imgui.CollapsingHeader('Keep the minimap shown...', ImGuiTreeNodeFlags_DefaultOpen) then
@@ -176,7 +179,13 @@ function M.draw_body()
         zoom_input('Hostile zone zoom', zc, 'hostile', 'Field, dungeon and battle zones you have no saved zoom for. (0.1 - 2)')
         zoom_input('Safe zone zoom', zc, 'safe', 'Cities, towns, indoor and residential areas, boats and airships. (0.1 - 2)')
         zoom_input('Zoom when "by type" is off', s, 'default_zoom')
-        slider_ms('Delay after zoning', zc, 'delay', 0, 5000, 'Wait this long after arriving so the minimap has loaded the new map (sent once more 1.5 s later if needed).')
+        slider_ms('Last check after zoning', zc, 'delay', 0, 5000, 'The zoom is sent during the load screen and checked on arrival. This long after arriving it is checked once more and sent again if the minimap lost it.')
+        imgui.Separator()
+        local zn = s.zoning
+        checkbox('Hide the minimap until the zoom has settled', zn, 'hide',
+            'After zoning, keep the minimap hidden until the new zone\'s zoom is confirmed, then fade it in. You never see the old zone\'s zoom.')
+        slider_ms('Wait after arriving', zn, 'hold', 0, 3000, 'Minimum time after arriving before the minimap may show (0 - 3000 ms).')
+        slider_ms('Fade in after zoning', zn, 'fade_in', 0, 3000, 'How long the minimap takes to fade in after zoning (0 - 3000 ms).')
         if zid ~= nil then
             M.override_input = M.override_input or { 1 }
             if M.override_zone ~= zid then                      -- follow the zone you are in

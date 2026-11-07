@@ -69,6 +69,16 @@ defaults.zoom_by_type = T{
     delay = 1.0,                  -- seconds after zoning before the zoom is sent (map must be loaded)
     auto_save = true,             -- when you change the zoom in a zone, save it for that zone
 }
+-- After zoning (1.1.0). The minimap plugin keeps one zoom for every zone, so it would briefly show
+-- the new map at the old zone's zoom. Keep it hidden until the new zone's zoom is confirmed in
+-- minimap.ini and `hold` has passed, then fade it in.
+defaults.zoning = T{
+    hide = true,                  -- hide the minimap from leaving a zone until the zoom has settled
+    hold = 0.5,                   -- seconds after arriving before it may show (0 - 3)
+    fade_in = 0.5,                -- seconds to fade it in afterwards (0 - 3)
+    max_wait = 4,                 -- show it anyway this long after arriving (zoom never confirmed)
+}
+
 -- Saved zoom for each zone (zone id -> zoom). Filled automatically when you change the zoom in a
 -- zone, or with /mme zoom set <n>.
 defaults.zoom_overrides = T{}

@@ -10,9 +10,17 @@
 *   2. first visit: the safe-zone or hostile-zone zoom (if zoom by zone type is enabled)
 *   3. default_zoom
 *
-* Timing: the zoom is sent `delay` seconds after zoning has finished (so the minimap has loaded the
-* new zone's map), then once more RETRY_GAP later unless minimap.ini already shows it or you changed
-* the zoom yourself in between. Never more than 2 sends per zone-in.
+* Timing (1.1.0): the minimap plugin keeps ONE zoom for every zone, so on arrival it draws the new
+* map at the zoom of the zone you left until we send the new one. 1.0.0 sent it `delay` seconds after
+* zoning had finished, which is the jump you could see. Now:
+*   1. early: the zoom is sent as soon as the zone-in packet names the new zone (during the load
+*      screen), so the map normally arrives at the right zoom;
+*   2. on arrival: minimap.ini is checked; if it does not show the zoom yet, it is sent again
+*      (checked CONFIRM_GAP later, then once more RETRY_GAP later);
+*   3. `delay` seconds after arrival: one last check (and send if needed), in case the plugin reset
+*      its zoom while loading the map.
+* settled() tells the caller when the zoom is confirmed (or given up on), so it can keep the minimap
+* hidden until then and fade it in.
 *
 * Manual change = a '/minimap zoom <n>' / '/mm zoom <n>' we did not send, or the minimap.ini zoom
 * changing to a value we did not send (editor slider / mouse wheel: the plugin stores every zoom
@@ -22,7 +30,7 @@
 --]]
 local zones = require('mmzones')
 
-local M = { RETRY_GAP = 1.5, POLL = 0.5, EXPECT_WINDOW = 3.0, EPS = 0.005, MIN = 0.1, MAX = 2.0 }
+local M = { RETRY_GAP = 1.5, CONFIRM_GAP = 0.25, EARLY_WINDOW = 60, POLL = 0.5, EXPECT_WINDOW = 3.0, EPS = 0.005, MIN = 0.1, MAX = 2.0 }
 
 local Z = {}; Z.__index = Z
 
@@ -66,16 +74,39 @@ function Z:on_zone_in(zone)
     self.pending = { zone = tonumber(zone), at = nil, tries = 0 }
 end
 
+-- Zone-in packet: send the new zone's zoom right away, while the load screen is up. Expected for
+-- EARLY_WINDOW seconds, because a long load screen must not make it look like a manual change.
+function Z:send_early(now, s, zone)
+    zone = tonumber(zone)
+    if zone == nil then return nil end
+    if self.pending == nil or self.pending.zone ~= zone then self:on_zone_in(zone) end
+    local v, src = self:resolve(zone, s)
+    self.last_target, self.last_source = v, src
+    self:send(now, v, M.EARLY_WINDOW)
+    self.pending.early = true
+    return v
+end
+
+-- Zoning finished (player exists in the new zone): check at once, and once more `delay` later.
 function Z:on_ready(now, s, zone)
     if self.pending == nil or self.pending.zone ~= tonumber(zone) then self.pending = { zone = tonumber(zone), tries = 0 } end
     local d = tonumber((s.zoom_by_type or {}).delay) or 1.0
-    self.pending.at = now + math.max(0, d)
+    self.pending.at = now
+    self.pending.final = now + math.max(0, d)
+    self.pending.confirmed = false
 end
 
-function Z:send(now, value)
+-- true once this zone's zoom is confirmed in minimap.ini, given up on, or you changed it yourself.
+function Z:settled()
+    local p = self.pending
+    return p == nil or p.confirmed == true
+end
+
+function Z:send(now, value, window)
     local str = M.fmt(value)
-    self.expect[#self.expect + 1] = { v = tonumber(str), untilt = now + M.EXPECT_WINDOW }
-    self.sent = { v = tonumber(str), untilt = now + M.EXPECT_WINDOW }
+    local untilt = now + (window or M.EXPECT_WINDOW)
+    self.expect[#self.expect + 1] = { v = tonumber(str), untilt = untilt }
+    self.sent = { v = tonumber(str), untilt = untilt }
     self.sends = self.sends + 1
     self.io.queue('/minimap zoom ' .. str)
 end
@@ -152,13 +183,25 @@ function Z:tick(now, s, zone)
     if p.zone ~= tonumber(zone) then self.pending = nil; return false end
     local v, src = self:resolve(zone, s)
     self.last_target, self.last_source = v, src
-    if p.tries >= 1 then
-        local ini = self.io.read_ini()
-        if close(ini, tonumber(M.fmt(v))) then self.pending = nil; return false end
+    local want = tonumber(M.fmt(v))
+    local ini = self.io.read_ini()
+    if close(ini, want) then
+        -- The minimap has it. Remember the value so poll_ini doesn't take our own send for yours.
+        p.confirmed = true
+        self.last_ini = ini
+        if self.sent ~= nil and close(self.sent.v, want) then self.sent = nil end
+        if p.final ~= nil and now < p.final then p.at = p.final else self.pending = nil end
+        return false
+    end
+    if p.tries >= 2 then
+        -- Sent twice since arriving and still not shown: stop (never spam), let the map show.
+        p.confirmed = true
+        self.pending = nil
+        return false
     end
     self:send(now, v)
     p.tries = p.tries + 1
-    if p.tries >= 2 then self.pending = nil else p.at = now + M.RETRY_GAP end
+    p.at = now + (p.tries == 1 and M.CONFIRM_GAP or M.RETRY_GAP)
     return true
 end
 
